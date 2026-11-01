@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Framework-only dark theme (no appcompat): darkest board black, amber accent. -->
+    <style name="BoardTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/board_bg</item>
+        <item name="android:statusBarColor">@color/board_bg</item>
+        <item name="android:navigationBarColor">@color/board_bg</item>
+        <item name="android:colorPrimary">@color/board_bg</item>
+        <item name="android:colorPrimaryDark">@color/board_bg</item>
+        <item name="android:colorAccent">@color/amber</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_dim</item>
+    </style>
+</resources>

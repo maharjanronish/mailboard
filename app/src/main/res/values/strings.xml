@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Departa</string>
+    <string name="widget_label">Departa Board</string>
+
+    <!-- Board header -->
+    <string name="departures">DEPARTURES</string>
+    <string name="header_lines">LINES</string>
+    <string name="header_new">+ NEW</string>
+    <string name="header_new_line">+ NEW LINE</string>
+    <string name="empty_board">NO DEPARTURES\nALL TRACKS CLEAR</string>
+
+    <!-- Permission gate -->
+    <string name="perm_title">CALENDAR ACCESS</string>
+    <string name="perm_body">Departa reads your calendar through the Android system provider. Nothing leaves this device — the app has no internet permission.</string>
+    <string name="grant">GRANT ACCESS</string>
+
+    <!-- Editor -->
+    <string name="label_event">EVENT</string>
+    <string name="label_line">LINE</string>
+    <string name="label_duration">DURATION · MINUTES</string>
+    <string name="label_location">LOCATION</string>
+    <string name="label_repeat">REPEAT</string>
+    <string name="label_color">COLOR</string>
+    <string name="hint_title">STANDUP SYNC</string>
+    <string name="hint_location">PLATFORM · ROOM</string>
+    <string name="hint_line_name">LINE NAME</string>
+    <string name="chip_once">ONCE</string>
+    <string name="chip_daily">DAILY</string>
+    <string name="chip_weekly">WEEKLY</string>
+    <string name="chip_monthly">MONTHLY</string>
+    <string name="btn_save">SAVE</string>
+    <string name="btn_delete">DELETE EVENT</string>
+
+    <!-- Lines screen -->
+    <string name="lines_empty">NO LINES YET\nCREATE ONE TO START FILING EVENTS</string>
+
+    <!-- Widget -->
+    <string name="widget_header">DEPARTURES</string>
+    <string name="widget_next">NEXT 8</string>
+    <string name="widget_empty">NO DEPARTURES</string>
+    <string name="widget_desc">Departure board for your calendar</string>
+</resources>
