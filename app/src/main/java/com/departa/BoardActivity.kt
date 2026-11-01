@@ -50,13 +50,15 @@ class BoardActivity : Activity() {
     private var token = 0
 
     private var todayKey = 0L        // local midnight of today (re-anchored at midnight rollover)
-    private var selectedDayKey = 0L  // the day under the rail reticle
+    private var selectedDayKey = 0L  // the day under the dial's magnifier
 
     private val debouncedReload = Runnable { reload() }
     private val dayReload = Runnable { reload() }
 
     /** The only per-second work in the app: one TextView's text. */
-    private val clockTick = Runnable {
+    // Explicit type: the lambda re-posts itself, and an inferred type would
+    // recurse (K2 rejects self-referencing initializers without it).
+    private val clockTick: Runnable = Runnable {
         clock.text = Fmt.hms(System.currentTimeMillis())
         main.postDelayed(clockTick, Fmt.millisToNextSecond())
     }
