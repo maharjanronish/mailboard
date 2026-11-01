@@ -2,9 +2,9 @@ package com.departa
 
 import android.Manifest
 import android.app.Activity
-import android.content.ContentObserver
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
