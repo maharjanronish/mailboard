@@ -6,8 +6,8 @@ A calendar that behaves like a railway departure board. **Events are trains. Cal
 
 - Board-first Android app with a tiny footprint: **zero external dependencies, no androidx, no network stack**
 - Reads and writes the system calendar provider; Google Calendar stays in sync via Android's own sync adapter
-- Departure-board UI: amber monospace on black, live clock and the selected day big and centered in the header, departed rows struck through
-- **Date rail** — slide one finger across the days through a magnified center zone (like glass over a dial): the selected day swells up big, amber and bold dead-center, and shrinks away as it leaves; the board scopes to that day and `+ NEW` defaults to it
+- Departure-board UI: amber monospace on black, live clock in the header, the selected day swelling into the big centered date inside the rail itself, departed rows struck through
+- **Date rail** — the date display and the picker in one: slide one finger across the days through a magnified center zone and the selected day swells into the big centered date (weekday above · ~36sp amber number · month below); the board scopes to that day and `+ NEW` defaults to it
 - Home-screen widget showing the next 8 departures
 
 ## Build

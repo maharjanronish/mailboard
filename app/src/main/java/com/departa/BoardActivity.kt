@@ -25,8 +25,9 @@ import java.util.concurrent.Executors
  * The departure board.
  *
  * The header owns all time context now: a second-aligned live clock, the
- * selected day in big bold type centered on the screen's axis, and the
- * DateRail magnifier dial — one finger slides the days across a magnified
+ * TODAY reset chip, and the DateRail magnifier dial whose centered cell is
+ * itself the big date display — weekday above, a ~36sp bold amber day
+ * number, month below. One finger slides the days across the magnified
  * center zone (the biggest cell is the selection) and the board below
  * re-queries to exactly that day. Day-scoping killed the old
  * endlessly-extendable window machinery: one bounded [dayStart, dayEnd)
@@ -42,9 +43,6 @@ class BoardActivity : Activity() {
     private lateinit var list: ListView
     private lateinit var rail: DateRail
     private lateinit var clock: TextView
-    private lateinit var dateDow: TextView
-    private lateinit var dateNum: TextView
-    private lateinit var dateMon: TextView
     private lateinit var btnToday: TextView
 
     private val main = Handler(Looper.getMainLooper())
@@ -86,9 +84,6 @@ class BoardActivity : Activity() {
 
         rail = findViewById(R.id.rail)
         clock = findViewById(R.id.clock)
-        dateDow = findViewById(R.id.date_dow)
-        dateNum = findViewById(R.id.date_num)
-        dateMon = findViewById(R.id.date_mon)
         btnToday = findViewById(R.id.btn_today)
 
         todayKey = Fmt.dayKey(System.currentTimeMillis())
@@ -101,7 +96,7 @@ class BoardActivity : Activity() {
         )
         rail.onSelected = { day -> onDaySelected(day) }
         btnToday.setOnClickListener { rail.selectDay(todayKey, smooth = true) }
-        renderDateHeader()
+        renderTodayChip()
 
         findViewById<View>(R.id.btn_add).setOnClickListener {
             startActivity(
@@ -167,20 +162,18 @@ class BoardActivity : Activity() {
         checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
-    // ------------------------------------------------------------ date header
+    // ------------------------------------------------------------ today chip
 
     private fun onDaySelected(dayKey: Long) {
         selectedDayKey = dayKey
-        renderDateHeader()
+        renderTodayChip()
         // Coalesce a fast fling across many days into one re-query.
         main.removeCallbacks(dayReload)
         main.postDelayed(dayReload, DAY_RELOAD_DEBOUNCE_MS)
     }
 
-    private fun renderDateHeader() {
-        dateDow.text = Fmt.dowAbbr(selectedDayKey)
-        dateNum.text = Fmt.dayNum(selectedDayKey).toString()
-        dateMon.text = Fmt.monthAbbr(selectedDayKey)
+    /** The TODAY chip lights amber whenever the dial is off today. */
+    private fun renderTodayChip() {
         btnToday.setTextColor(
             getColor(if (selectedDayKey == todayKey) R.color.text_dim else R.color.amber)
         )
@@ -194,7 +187,7 @@ class BoardActivity : Activity() {
             selectedDayKey = todayKey
         }
         rail.setDays(first, count, todayKey, selectedDayKey)
-        renderDateHeader()
+        renderTodayChip()
     }
 
     // ----------------------------------------------------------------- minute

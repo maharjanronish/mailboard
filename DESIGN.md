@@ -45,11 +45,13 @@ board shows exactly that day's departures — a 30-minute tail of
 just-departed trains (struck through, dimmed) and the NOW divider before
 the first future departure when the scoped day is today. Day-scoping also
 removed the old endlessly-extendable query window: one bounded
-`[dayStart, dayEnd)` query per reload, no scroll-driven extension. The
-header owns all time context: a second-aligned live clock plus the selected
-day in big bold type, centered on the screen's axis so clock, date and dial
-read as one column. New events default to the scoped day (09:00, or the
-next half hour when scoped to today).
+`[dayStart, dayEnd)` query per reload, no scroll-driven extension. There is
+no separate date header: the dial's centered cell IS the big date display —
+weekday above, the day number swelling to ~36sp bold amber, month below —
+so one control is both the readout and the picker; the only other header
+context is a second-aligned live clock and the TODAY reset chip. New events
+default to the scoped day (09:00, or the next half hour when scoped to
+today).
 
 ## 3. Architecture
 
@@ -88,7 +90,7 @@ operation regular apps can't do in place).
 |---|---|---|
 | 1 | Windowed instance query (indexed range scan) — O(log n + k) | `loadDepartures` |
 | 2 | Multi-line merge done by SQLite `ORDER BY BEGIN` (k-way merge for free) | `loadDepartures` |
-| 3 | Date rail as one self-drawn View: Canvas paints only the ~12 visible cells of a 606-day range, OverScroller fling + center snap, animation self-driven from onDraw (no Choreographer callbacks, no child views, no adapter); per-cell magnification is a closed-form function of distance-from-center — no animators, no allocations per frame | `DateRail` |
+| 3 | Date rail as one self-drawn View: Canvas paints only the ~12 visible cells of a 606-day range, OverScroller fling + center snap, animation self-driven from onDraw (no Choreographer callbacks, no child views, no adapter); per-cell magnification is a closed-form function of distance-from-center — no animators, no allocations per frame; the centered cell doubles as the whole date header (weekday above, ~36sp day, month below), so no separate date row exists | `DateRail` |
 | 4 | NOW divider in a single pass over sorted data (day context lives in the header) | `buildRows` |
 | 5 | Minute-aligned board ticker (drift-free) + second-aligned clock tick that touches exactly one TextView | `scheduleTick` / `clockTick` |
 | 6 | Debounced ContentObserver (350 ms) — coalesces sync bursts, registered only while resumed | `observer` |
@@ -101,14 +103,13 @@ operation regular apps can't do in place).
 ```
  14:07:32                     TODAY   LINES   + NEW   ← live clock + action chips
 
-                WED  12  NOV                           ← big bold scoped day, centered
-
-   09  10  11   12   13  14  15                        ← date rail: slide one finger
-                     12                                ← magnified center cell (~2.4x,
-                                                        amber, bold): the biggest cell
-                                                        IS the selection — no marker
-                                                        line; cells fade to black at
-                                                        the edges
+    09  10  11    13  14  15                           ← date rail: slide one finger
+                 WED                                   ← weekday above the center cell
+                  12                                    ← the selected day IS the big
+                 NOV                                   date: ~36sp bold amber, month
+                                                        below; no marker line, cells
+                                                        shrink and fade to black
+                                                        off-center
  ───────────────────────────────────────────────────
  ───────────────────── NOW ────────────────────────  ← today only
  14:32  ● WORK   STANDUP SYNC                     in 3m

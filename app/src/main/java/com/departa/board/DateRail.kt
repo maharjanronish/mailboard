@@ -19,24 +19,27 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * The date rail — a magnifier dial for days.
+ * The date rail — a magnifier dial for days, and the date display itself.
  *
  * One self-drawn View: no child views, no RecyclerView, no adapter. Only the
  * ~12 cells visible through the viewport are painted, so 600 days of range
  * cost exactly as much as 12. Real fling physics via [OverScroller]; every
  * gesture — drag, fling or tap — ends snapped so one cell lands dead center.
  *
- * There is no marker line: the magnification itself is the pointer. A cell's
- * scale, color and alpha are pure functions of its distance from the center
- * of the viewport, so while the finger slides (or the scroller settles) the
- * upcoming day visibly swells into focus as the old one shrinks away — the
- * selected day is simply the biggest one, `round(scrollPx / cellW)`. Past
- * the magnified zone the strip fades into darkness, like glass over a dial.
+ * There is no separate date header: the centered cell IS the big date
+ * readout — weekday above, the day number swelling to ~36sp bold amber, the
+ * month below. A cell's scale, color and alpha are pure functions of its
+ * distance from the center of the viewport, so while the finger slides (or
+ * the scroller settles) the upcoming day visibly swells into focus as the
+ * old one shrinks back to rail size — the selected day is simply the
+ * biggest one, `round(scrollPx / cellW)`. Past the magnified zone the strip
+ * fades into darkness, like glass over a dial.
  *
- * Cells show the weekday abbreviation above the day number; the first day of
- * a month shows the month abbreviation instead, so sliding across a month
- * boundary reads naturally. Today carries a marker dot that dissolves as it
- * reaches the center (the big amber number makes it redundant there).
+ * The top label is the weekday abbreviation; the first day of a month shows
+ * the month abbreviation instead while far away, crossfading to the weekday
+ * as the cell reaches the center (the month then rides below the big
+ * number, so it is never lost). Today carries a marker dot that dissolves
+ * as it reaches the center (the big amber number makes it redundant there).
  */
 class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, attrs) {
 
@@ -56,7 +59,9 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
 
     private var dayKeys = LongArray(0)
     private var dayTexts = arrayOf<String>()
-    private var topLabels = arrayOf<String>()
+    private var dowLabels = arrayOf<String>()
+    private var monLabels = arrayOf<String>()
+    private var monthFirst = BooleanArray(0)
     private var todayIdx = -1
     private var selIdx = -1
 
@@ -72,6 +77,7 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
 
     private val pLbl = textPaint(monoBold, sp(LBL_SP)).apply { color = resColor(R.color.text_dim) }
     private val pDay = textPaint(monoBold, sp(DAY_SP)).apply { color = resColor(R.color.text_primary) }
+    private val pMon = textPaint(monoBold, sp(MON_SP)).apply { color = resColor(R.color.text_dim) }
     private val pDot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = resColor(R.color.amber) }
 
     private val amber = resColor(R.color.amber)
@@ -79,10 +85,12 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
     private val lblFar = resColor(R.color.text_dim)
     private val lblBase = sp(LBL_SP)     // px, resolved once
     private val dayBase = sp(DAY_SP)     // px, resolved once
+    private val monBase = sp(MON_SP)     // px, resolved once
 
     // Geometry resolved in onSizeChanged (all dp, height is fixed in XML).
     private var labelY = 0f
     private var dayCY = 0f
+    private var monY = 0f
     private var dotY = 0f
     private val dotR = dp(2f)
 
@@ -100,19 +108,24 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
 
         val keys = LongArray(count)
         val texts = Array(count) { "" }
-        val labels = Array(count) { "" }
+        val dows = Array(count) { "" }
+        val mons = Array(count) { "" }
+        val firsts = BooleanArray(count)
         val cal = Calendar.getInstance().apply { timeInMillis = fromDayKey }
         for (i in 0 until count) {
             val num = cal.get(Calendar.DAY_OF_MONTH)
             keys[i] = cal.timeInMillis
             texts[i] = num.toString()
-            labels[i] = if (num == 1) mon[cal.get(Calendar.MONTH)]
-                        else dow[cal.get(Calendar.DAY_OF_WEEK)]
+            dows[i] = dow[cal.get(Calendar.DAY_OF_WEEK)]
+            mons[i] = mon[cal.get(Calendar.MONTH)]
+            firsts[i] = num == 1
             cal.add(Calendar.DAY_OF_YEAR, 1)
         }
         dayKeys = keys
         dayTexts = texts
-        topLabels = labels
+        dowLabels = dows
+        monLabels = mons
+        monthFirst = firsts
         todayIdx = keys.indexOfFirst { it == todayKey }
         selIdx = keys.indexOfFirst { it == initialKey }.let { if (it < 0) todayIdx else it }
         scrollPx = selIdx.coerceAtLeast(0) * cellW
@@ -229,9 +242,10 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
     // ------------------------------------------------------------------- draw
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        labelY = dp(22f)
-        dayCY = dp(46f)
-        dotY = dp(68f)
+        labelY = dp(24f)
+        dayCY = dp(60f)
+        monY = dp(98f)
+        dotY = dp(106f)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -257,19 +271,33 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
                 val t = (1f - abs(cx - half) / cellW).coerceIn(0f, 1f)
                 val edge = edgeFade(cx, half)
 
-                // Top label (weekday, or month on the 1st).
-                pLbl.textSize = lblBase * lerp(0.85f, 1.25f, t)
+                // Top label: the weekday; on the 1st, the month abbreviation
+                // crossfades out as the cell reaches the center (the month
+                // then rides below the big number instead).
+                pLbl.textSize = lblBase * lerp(LBL_FAR, LBL_NEAR, t)
                 pLbl.color = blend(lblFar, amber, t)
-                pLbl.alpha = ((200f + 55f * t) * edge).roundToInt()
-                canvas.drawText(topLabels[i], cx, labelY, pLbl)
+                val a = (200f + 55f * t) * edge
+                if (monthFirst[i]) {
+                    pLbl.alpha = ((1f - t) * a).roundToInt()
+                    canvas.drawText(monLabels[i], cx, labelY, pLbl)
+                }
+                pLbl.alpha = (if (monthFirst[i]) t * a else a).roundToInt()
+                canvas.drawText(dowLabels[i], cx, labelY, pLbl)
 
-                // Day number: magnified, vertically centered so it grows
-                // symmetrically out of the dial's axis.
-                pDay.textSize = dayBase * lerp(0.62f, 1.42f, t)
+                // The day number — the star: it swells to ~36sp bold amber
+                // at dead center, growing symmetrically out of the dial axis.
+                pDay.textSize = dayBase * lerp(DAY_FAR, DAY_NEAR, t)
                 pDay.color = blend(dayFar, amber, t)
                 pDay.alpha = ((160f + 95f * t) * edge).roundToInt()
                 val baseline = dayCY - (pDay.ascent() + pDay.descent()) / 2f
                 canvas.drawText(dayTexts[i], cx, baseline, pDay)
+
+                // Month below the big number: visible only near the center,
+                // completing the centered cell's full date.
+                pMon.textSize = monBase * lerp(MON_FAR, MON_NEAR, t)
+                pMon.color = blend(lblFar, amber, t)
+                pMon.alpha = (235f * t * edge).roundToInt()
+                if (pMon.alpha > 0) canvas.drawText(monLabels[i], cx, monY, pMon)
 
                 // Today dot dissolves as it reaches the magnified center.
                 if (i == todayIdx) {
@@ -324,8 +352,15 @@ class DateRail(context: Context, attrs: AttributeSet? = null) : View(context, at
     companion object {
         private const val CELL_DP = 48f
         private const val SNAP_MS = 260
-        private const val DAY_SP = 17f      // base day size: ×0.62 far, ×1.42 center
-        private const val LBL_SP = 9f       // base label size: ×0.85 far, ×1.25 center
+        private const val DAY_SP = 18f      // day number: ×0.55 far, ×2.0 center (~36sp)
+        private const val LBL_SP = 9f       // weekday label: ×0.85 far, ×1.35 center
+        private const val MON_SP = 9f       // month label: ×0.9 far, ×1.25 center
+        private const val DAY_FAR = 0.55f
+        private const val DAY_NEAR = 2.0f
+        private const val LBL_FAR = 0.85f
+        private const val LBL_NEAR = 1.35f
+        private const val MON_FAR = 0.9f
+        private const val MON_NEAR = 1.25f
         private const val EDGE_NEAR_CELLS = 2.1f
         private const val EDGE_FAR_CELLS = 3.3f
     }
