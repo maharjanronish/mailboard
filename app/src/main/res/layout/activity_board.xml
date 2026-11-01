@@ -9,7 +9,9 @@
         android:orientation="vertical">
 
         <!-- Live clock + actions. The board's time now lives HERE, not in a
-             mid-list divider: one second-aligned TextView tick, nothing else. -->
+             mid-list divider: one second-aligned TextView tick, nothing else.
+             TODAY rides with the actions and lights amber whenever the dial
+             has drifted off today; one tap springs it back. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -36,6 +38,17 @@
                 android:layout_weight="1" />
 
             <TextView
+                android:id="@+id/btn_today"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.15"
+                android:padding="6dp"
+                android:text="@string/today"
+                android:textColor="@color/text_dim"
+                android:textSize="13sp" />
+
+            <TextView
                 android:id="@+id/btn_lines"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -57,12 +70,13 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <!-- The selected day, big and bold (weekday and month ride the same
-             baseline as the huge day number), plus a TODAY reset chip. -->
+        <!-- The selected day, dead-center: weekday and month ride the same
+             baseline as the huge day number, all on the screen's center axis
+             so the header reads as one column with the dial below it. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
+            android:gravity="center_horizontal"
             android:orientation="horizontal"
             android:paddingStart="16dp"
             android:paddingTop="2dp"
@@ -99,30 +113,15 @@
                 android:textColor="@color/amber"
                 android:textSize="13sp"
                 android:textStyle="bold" />
-
-            <Space
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1" />
-
-            <TextView
-                android:id="@+id/btn_today"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:fontFamily="monospace"
-                android:letterSpacing="0.15"
-                android:padding="6dp"
-                android:text="@string/today"
-                android:textColor="@color/text_dim"
-                android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- The scope dial: one finger slides the days under the fixed amber
-             reticle; the board below always shows the day under it. -->
+        <!-- The magnifier dial: one finger slides the days across a fixed
+             magnified zone at dead center; the biggest cell IS the selection,
+             and the board below always shows that day. -->
         <com.departa.board.DateRail
             android:id="@+id/rail"
             android:layout_width="match_parent"
-            android:layout_height="64dp" />
+            android:layout_height="76dp" />
 
         <View
             android:layout_width="match_parent"

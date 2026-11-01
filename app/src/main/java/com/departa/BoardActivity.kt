@@ -25,10 +25,12 @@ import java.util.concurrent.Executors
  * The departure board.
  *
  * The header owns all time context now: a second-aligned live clock, the
- * selected day in big bold type, and the DateRail scope dial — one finger
- * slides the days under a fixed amber reticle and the board below re-queries
- * to exactly that day. Day-scoping killed the old endlessly-extendable
- * window machinery: one bounded [dayStart, dayEnd) query per reload.
+ * selected day in big bold type centered on the screen's axis, and the
+ * DateRail magnifier dial — one finger slides the days across a magnified
+ * center zone (the biggest cell is the selection) and the board below
+ * re-queries to exactly that day. Day-scoping killed the old
+ * endlessly-extendable window machinery: one bounded [dayStart, dayEnd)
+ * query per reload.
  *
  * Still zero services, zero wake locks, zero network. The observer is only
  * registered while resumed; the clock is one TextView per second.

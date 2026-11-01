@@ -6,8 +6,8 @@ A calendar that behaves like a railway departure board. **Events are trains. Cal
 
 - Board-first Android app with a tiny footprint: **zero external dependencies, no androidx, no network stack**
 - Reads and writes the system calendar provider; Google Calendar stays in sync via Android's own sync adapter
-- Departure-board UI: amber monospace on black, live clock in the header, departed rows struck through
-- **Date rail** — slide one finger across the days under the fixed amber reticle (like a scope dial); the board scopes to that day and `+ NEW` defaults to it
+- Departure-board UI: amber monospace on black, live clock and the selected day big and centered in the header, departed rows struck through
+- **Date rail** — slide one finger across the days through a magnified center zone (like glass over a dial): the selected day swells up big, amber and bold dead-center, and shrinks away as it leaves; the board scopes to that day and `+ NEW` defaults to it
 - Home-screen widget showing the next 8 departures
 
 ## Build
@@ -64,7 +64,7 @@ app/src/main/java/com/departa/
   BoardActivity.kt        the board (day-scoped query, clock, date rail, ticker, observer)
   EditActivity.kt         create / edit a departure
   LinesActivity.kt        line manager
-  board/DateRail.kt       self-drawn date "scope dial" (Canvas + OverScroller snap)
+  board/DateRail.kt       self-drawn magnifier date dial (Canvas + OverScroller snap)
   board/BoardAdapter.kt   rows: departure / NOW divider
   data/                   models + CalendarContract repository (all storage access)
   ui/LineDialogs.kt       shared line-creation dialog
