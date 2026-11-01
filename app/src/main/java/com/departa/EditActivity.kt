@@ -78,12 +78,30 @@ class EditActivity : Activity() {
     // -------------------------------------------------------------- fill state
 
     private fun fillDefaults() {
-        begin = nextHalfHour(System.currentTimeMillis() + 60L * 60L * 1000L)
+        begin = defaultBegin()
         selectedLine = lines.firstOrNull { !it.hidden } ?: lines.firstOrNull()
         etDur.setText("60")
         etLoc.setText("")
         setRepeat(REPEAT_NONE)
         refreshLabels()
+    }
+
+    /**
+     * New events default to the day the board is scoping to: next half hour
+     * when that's today, 09:00 sharp on any other day. No hint → old behavior.
+     */
+    private fun defaultBegin(): Long {
+        val hint = intent.getLongExtra(EXTRA_DAY_HINT, 0L)
+        if (hint <= 0L) return nextHalfHour(System.currentTimeMillis() + 60L * 60L * 1000L)
+        val now = System.currentTimeMillis()
+        if (Fmt.dayKey(now) == hint) return nextHalfHour(now + 60L * 60L * 1000L)
+        return Calendar.getInstance().apply {
+            timeInMillis = hint
+            set(Calendar.HOUR_OF_DAY, 9)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
     }
 
     private fun fillForEdit(ev: BoardRepository.EventRecord) {
@@ -265,6 +283,7 @@ class EditActivity : Activity() {
 
     companion object {
         const val EXTRA_EVENT_ID = "event_id"
+        const val EXTRA_DAY_HINT = "day_hint"
         const val REPEAT_NONE = 0
         const val REPEAT_DAILY = 1
         const val REPEAT_WEEKLY = 2

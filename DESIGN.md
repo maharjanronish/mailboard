@@ -37,9 +37,16 @@ Java for half the code at identical runtime performance (same JVM bytecode; the
 R8-shrunk stdlib costs a few hundred KB).
 
 ### D4 — Board semantics
-The board shows *departures* (starts), not running events: a 30-minute tail of
-just-departed trains (struck through, dimmed), the NOW divider before the first
-future departure, then the upcoming horizon.
+The board is **day-scoped**: the header's date rail (a self-drawn scope dial —
+one finger slides days under a fixed amber reticle) picks the day, and the
+board shows exactly that day's departures — a 30-minute tail of
+just-departed trains (struck through, dimmed) and the NOW divider before
+the first future departure when the scoped day is today. Day-scoping also
+removed the old endlessly-extendable query window: one bounded
+`[dayStart, dayEnd)` query per reload, no scroll-driven extension. The
+header owns all time context: a second-aligned live clock plus the selected
+day in big bold type. New events default to the scoped day (09:00, or the
+next half hour when scoped to today).
 
 ## 3. Architecture
 
@@ -52,8 +59,8 @@ future departure, then the upcoming horizon.
                                     ┌───────────────┼────────────────┐
                                     ▼               ▼                ▼
                               BoardActivity     EditActivity     Widget factory
-                              windowed query    insert/update    next-8 query
-                              + observer        + delete/move    (push-refreshed)
+                              day-scoped query  insert/update    next-8 query
+                              + clock + rail    + delete/move    (push-refreshed)
 ```
 
 ## 4. Data contracts
@@ -78,28 +85,33 @@ operation regular apps can't do in place).
 |---|---|---|
 | 1 | Windowed instance query (indexed range scan) — O(log n + k) | `loadDepartures` |
 | 2 | Multi-line merge done by SQLite `ORDER BY BEGIN` (k-way merge for free) | `loadDepartures` |
-| 3 | Lazy horizon extension: +1 day chunks while scrolling, 60-day cap, cooldown guard | `extendWindow` |
-| 4 | NOW divider & day separators in a single pass over sorted data | `buildRows` |
-| 5 | Minute-aligned ticker (drift-free scheduling, no per-second wakeups) | `scheduleTick` |
+| 3 | Date rail as one self-drawn View: Canvas paints only the ~12 visible cells of a 606-day range, OverScroller fling + center snap, animation self-driven from onDraw (no Choreographer callbacks, no child views, no adapter) | `DateRail` |
+| 4 | NOW divider in a single pass over sorted data (day context lives in the header) | `buildRows` |
+| 5 | Minute-aligned board ticker (drift-free) + second-aligned clock tick that touches exactly one TextView | `scheduleTick` / `clockTick` |
 | 6 | Debounced ContentObserver (350 ms) — coalesces sync bursts, registered only while resumed | `observer` |
 | 7 | Token-guarded async loads — stale results dropped | `reload` |
-| 8 | ListView recycling + per-view-type holders (3 types) | `BoardAdapter` |
+| 8 | ListView recycling + per-view-type holders (2 types) | `BoardAdapter` |
 | 9 | Widget push-refresh (`notifyAppWidgetViewDataChanged`) instead of polling | `BoardWidgetProvider.refresh` |
 
-## 6. Row anatomy
+## 6. Screen anatomy
 
 ```
-───────────────── ⏱ NOW · 14:07 ─────────────────
- 14:32  ● WORK   STANDUP SYNC            in 3m
+ 14:07:32                                LINES   + NEW   ← live clock (second-aligned)
+
+ WED 12 NOV                                    TODAY   ← big bold scoped day + reset chip
+   09  10  11  12  13  14  15                        ← date rail: slide one finger
+                 ▮                                      ← fixed amber reticle (12 = selected)
+ ───────────────────────────────────────────────────
+ ───────────────────── NOW ────────────────────────  ← today only
+ 14:32  ● WORK   STANDUP SYNC                     in 3m
                 WORK · MEET LINK
- 14:45  ● GYM    LEG DAY — PUSH             NOW
+ 14:45  ● GYM    LEG DAY — PUSH                     NOW
                 GYM · STUDIO 2
-──────────────── TOMORROW ────────────────
- 09:00  ● GYM    MORNING RUN                45m
+ 13:58  ● WORK   RETRO REVIEW                      GONE   ← 30-min departed tail
 ```
 
-States: upcoming (`in Xm`), active (`NOW`), departed (struck through, 35% alpha,
-`GONE`), all-day (`--:--` / `ALL DAY`).
+States: upcoming (`in Xm` / `in Xh Ym` / `in Xd Yh`), active (`NOW`), departed
+(struck through, 35% alpha, `GONE`), all-day (`--:--` / `ALL DAY`).
 
 ## 7. Performance budget
 
@@ -114,6 +126,7 @@ States: upcoming (`in Xm`), active (`NOW`), departed (struck through, 35% alpha,
 
 ## 8. v1 scope & deferred
 
-In: board, fast CRUD with repeat presets, line create/rename/hide, local lines, widget.
-Deferred: flip animations, sub-lines (extended properties), reminders, all-day date
-grouping, declined-event filtering, series-single-instance editing, i18n.
+In: board, live clock + date rail (day-scoped board), fast CRUD with repeat
+presets, line create/rename/hide, local lines, widget.
+Deferred: flip animations, sub-lines (extended properties), reminders, declined-event
+filtering, series-single-instance editing, i18n.

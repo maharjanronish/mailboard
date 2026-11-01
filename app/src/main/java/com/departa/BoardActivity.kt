@@ -8,12 +8,12 @@ import android.database.ContentObserver
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.SystemClock
 import android.provider.CalendarContract
 import android.view.View
-import android.widget.AbsListView
 import android.widget.ListView
+import android.widget.TextView
 import com.departa.board.BoardAdapter
+import com.departa.board.DateRail
 import com.departa.board.Row
 import com.departa.data.BoardRepository
 import com.departa.data.Departure
@@ -22,28 +22,47 @@ import com.departa.widget.BoardWidgetProvider
 import java.util.concurrent.Executors
 
 /**
- * The departure board. One ListView, three row types, a minute-aligned
- * ticker, a debounced ContentObserver and an endlessly extendable query
- * window. No services, no wake locks, no network.
+ * The departure board.
+ *
+ * The header owns all time context now: a second-aligned live clock, the
+ * selected day in big bold type, and the DateRail scope dial — one finger
+ * slides the days under a fixed amber reticle and the board below re-queries
+ * to exactly that day. Day-scoping killed the old endlessly-extendable
+ * window machinery: one bounded [dayStart, dayEnd) query per reload.
+ *
+ * Still zero services, zero wake locks, zero network. The observer is only
+ * registered while resumed; the clock is one TextView per second.
  */
 class BoardActivity : Activity() {
 
     private lateinit var repo: BoardRepository
     private lateinit var adapter: BoardAdapter
     private lateinit var list: ListView
+    private lateinit var rail: DateRail
+    private lateinit var clock: TextView
+    private lateinit var dateDow: TextView
+    private lateinit var dateNum: TextView
+    private lateinit var dateMon: TextView
+    private lateinit var btnToday: TextView
 
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
     private var token = 0
-    private var windowEnd = 0L
-    private var extending = false
-    private var lastExtendAt = 0L
+
+    private var todayKey = 0L        // local midnight of today (re-anchored at midnight rollover)
+    private var selectedDayKey = 0L  // the day under the rail reticle
 
     private val debouncedReload = Runnable { reload() }
+    private val dayReload = Runnable { reload() }
+
+    /** The only per-second work in the app: one TextView's text. */
+    private val clockTick = Runnable {
+        clock.text = Fmt.hms(System.currentTimeMillis())
+        main.postDelayed(clockTick, Fmt.millisToNextSecond())
+    }
 
     private val ticker = Runnable {
-        reload()
-        BoardWidgetProvider.refresh(this@BoardActivity)
+        onMinute()
         scheduleTick()
     }
 
@@ -63,8 +82,30 @@ class BoardActivity : Activity() {
         list.adapter = adapter
         list.emptyView = findViewById(R.id.empty)
 
+        rail = findViewById(R.id.rail)
+        clock = findViewById(R.id.clock)
+        dateDow = findViewById(R.id.date_dow)
+        dateNum = findViewById(R.id.date_num)
+        dateMon = findViewById(R.id.date_mon)
+        btnToday = findViewById(R.id.btn_today)
+
+        todayKey = Fmt.dayKey(System.currentTimeMillis())
+        selectedDayKey = todayKey
+        rail.setDays(
+            Fmt.addDays(todayKey, -RAIL_PAST_DAYS),
+            RAIL_PAST_DAYS + RAIL_FUTURE_DAYS + 1,
+            todayKey,
+            todayKey
+        )
+        rail.onSelected = { day -> onDaySelected(day) }
+        btnToday.setOnClickListener { rail.selectDay(todayKey, smooth = true) }
+        renderDateHeader()
+
         findViewById<View>(R.id.btn_add).setOnClickListener {
-            startActivity(Intent(this, EditActivity::class.java))
+            startActivity(
+                Intent(this, EditActivity::class.java)
+                    .putExtra(EditActivity.EXTRA_DAY_HINT, selectedDayKey)
+            )
         }
         findViewById<View>(R.id.btn_lines).setOnClickListener {
             startActivity(Intent(this, LinesActivity::class.java))
@@ -83,14 +124,6 @@ class BoardActivity : Activity() {
                 )
             }
         }
-        list.setOnScrollListener(object : AbsListView.OnScrollListener {
-            override fun onScrollStateChanged(view: AbsListView, scrollState: Int) {}
-            override fun onScroll(view: AbsListView, firstVisible: Int, visibleCount: Int, totalCount: Int) {
-                if (totalCount > 0 && firstVisible + visibleCount >= totalCount - LOAD_AHEAD) {
-                    extendWindow()
-                }
-            }
-        })
     }
 
     override fun onResume() {
@@ -102,8 +135,15 @@ class BoardActivity : Activity() {
         findViewById<View>(R.id.perm_gate).visibility = View.GONE
         contentResolver.registerContentObserver(CalendarContract.Events.CONTENT_URI, true, observer)
         contentResolver.registerContentObserver(CalendarContract.Instances.CONTENT_URI, true, observer)
-        windowEnd = System.currentTimeMillis() + INITIAL_WINDOW_MS
+
+        // The process may have slept across one or more midnights.
+        val nowToday = Fmt.dayKey(System.currentTimeMillis())
+        if (nowToday != todayKey) {
+            todayKey = nowToday
+            rebuildRail()
+        }
         reload()
+        clockTick.run()
         scheduleTick()
     }
 
@@ -111,7 +151,9 @@ class BoardActivity : Activity() {
         super.onPause()
         contentResolver.unregisterContentObserver(observer)
         main.removeCallbacks(ticker)
+        main.removeCallbacks(clockTick)
         main.removeCallbacks(debouncedReload)
+        main.removeCallbacks(dayReload)
     }
 
     override fun onDestroy() {
@@ -123,53 +165,81 @@ class BoardActivity : Activity() {
         checkSelfPermission(Manifest.permission.READ_CALENDAR) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.WRITE_CALENDAR) == PackageManager.PERMISSION_GRANTED
 
-    /** Lazy window extension: grow the horizon one day at a time, capped. */
-    private fun extendWindow() {
-        if (extending) return
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastExtendAt < EXTEND_COOLDOWN_MS) return
-        if (windowEnd - System.currentTimeMillis() > MAX_LOOKAHEAD_MS) return
-        extending = true
-        lastExtendAt = now
-        windowEnd += DAY_MS
-        reload()
+    // ------------------------------------------------------------ date header
+
+    private fun onDaySelected(dayKey: Long) {
+        selectedDayKey = dayKey
+        renderDateHeader()
+        // Coalesce a fast fling across many days into one re-query.
+        main.removeCallbacks(dayReload)
+        main.postDelayed(dayReload, DAY_RELOAD_DEBOUNCE_MS)
     }
 
+    private fun renderDateHeader() {
+        dateDow.text = Fmt.dowAbbr(selectedDayKey)
+        dateNum.text = Fmt.dayNum(selectedDayKey).toString()
+        dateMon.text = Fmt.monthAbbr(selectedDayKey)
+        btnToday.setTextColor(
+            getColor(if (selectedDayKey == todayKey) R.color.text_dim else R.color.amber)
+        )
+    }
+
+    private fun rebuildRail() {
+        val first = Fmt.addDays(todayKey, -RAIL_PAST_DAYS)
+        val count = RAIL_PAST_DAYS + RAIL_FUTURE_DAYS + 1
+        // After a very long sleep the old selection can fall out of range.
+        if (selectedDayKey < first || selectedDayKey >= Fmt.addDays(first, count)) {
+            selectedDayKey = todayKey
+        }
+        rail.setDays(first, count, todayKey, selectedDayKey)
+        renderDateHeader()
+    }
+
+    // ----------------------------------------------------------------- minute
+
+    /** Minute tick: midnight rollover guard + board refresh + widget push. */
+    private fun onMinute() {
+        val nowToday = Fmt.dayKey(System.currentTimeMillis())
+        if (nowToday != todayKey) {
+            val wasOnToday = selectedDayKey == todayKey
+            todayKey = nowToday
+            if (wasOnToday) selectedDayKey = nowToday
+            rebuildRail()
+        }
+        reload()
+        BoardWidgetProvider.refresh(this)
+    }
+
+    // ------------------------------------------------------------------ board
+
+    /** One bounded query: exactly the selected day (30-min past tail when it's today). */
     private fun reload() {
         if (!hasPermission()) return
         val myToken = ++token
-        val from = System.currentTimeMillis() - PAST_WINDOW_MS
-        val to = windowEnd
+        val isToday = selectedDayKey == todayKey
+        val from = if (isToday) System.currentTimeMillis() - PAST_WINDOW_MS else selectedDayKey
+        val to = Fmt.addDays(selectedDayKey, 1)
         io.execute {
             val lines = repo.loadLines()
             val departures = repo.loadDepartures(from, to, lines)
-            val rows = buildRows(departures, System.currentTimeMillis())
+            val rows = buildRows(departures, System.currentTimeMillis(), isToday)
             main.post {
-                if (myToken == token) {
-                    adapter.rows = rows
-                    extending = false
-                }
+                if (myToken == token) adapter.rows = rows
             }
         }
     }
 
     /**
-     * Single pass over the time-sorted departures: day separators on day
-     * changes, NOW divider before the first future departure.
+     * Single pass over the time-sorted departures of ONE day: NOW divider
+     * before the first future departure (today only — other days have no
+     * "now"). Day context lives in the header, so there are no day rows.
      */
-    private fun buildRows(departures: List<Departure>, now: Long): List<Row> {
-        val out = mutableListOf<Row>()
-        val todayKey = Fmt.dayKey(now)
-        var prevDayKey = todayKey
+    private fun buildRows(departures: List<Departure>, now: Long, isToday: Boolean): List<Row> {
+        val out = ArrayList<Row>(departures.size + 2)
         var insertedNow = false
         for (d in departures) {
-            val key = Fmt.dayKey(d.begin)
-            if (key != prevDayKey) {
-                out += Row.Day(Fmt.dayLabel(d.begin, now))
-                prevDayKey = key
-            }
-            if (!insertedNow && d.begin >= now) {
-                out += Row.Now(now)
+            if (isToday && !insertedNow && d.begin >= now) {
+                out += Row.Now
                 insertedNow = true
             }
             out += Row.DepartureRow(d)
@@ -184,12 +254,10 @@ class BoardActivity : Activity() {
 
     companion object {
         const val REQ_PERM = 7
-        private const val DAY_MS = 24L * 60L * 60L * 1000L
         private const val PAST_WINDOW_MS = 30L * 60L * 1000L
-        private const val INITIAL_WINDOW_MS = 36L * 60L * 60L * 1000L
-        private const val MAX_LOOKAHEAD_MS = 60L * DAY_MS
         private const val RELOAD_DEBOUNCE_MS = 350L
-        private const val EXTEND_COOLDOWN_MS = 400L
-        private const val LOAD_AHEAD = 6
+        private const val DAY_RELOAD_DEBOUNCE_MS = 150L
+        private const val RAIL_PAST_DAYS = 60
+        private const val RAIL_FUTURE_DAYS = 545
     }
 }

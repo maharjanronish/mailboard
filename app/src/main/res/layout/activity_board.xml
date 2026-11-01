@@ -8,24 +8,26 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- Live clock + actions. The board's time now lives HERE, not in a
+             mid-list divider: one second-aligned TextView tick, nothing else. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="16dp"
-            android:paddingTop="12dp"
+            android:paddingTop="10dp"
             android:paddingEnd="16dp"
-            android:paddingBottom="12dp">
+            android:paddingBottom="10dp">
 
             <TextView
+                android:id="@+id/clock"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:letterSpacing="0.25"
-                android:text="@string/departures"
+                android:letterSpacing="0.08"
                 android:textColor="@color/amber"
-                android:textSize="15sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
 
             <Space
@@ -54,6 +56,73 @@
                 android:textColor="@color/amber"
                 android:textSize="13sp" />
         </LinearLayout>
+
+        <!-- The selected day, big and bold (weekday and month ride the same
+             baseline as the huge day number), plus a TODAY reset chip. -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="16dp"
+            android:paddingTop="2dp"
+            android:paddingEnd="16dp"
+            android:paddingBottom="6dp">
+
+            <TextView
+                android:id="@+id/date_dow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.25"
+                android:textColor="@color/amber"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/date_num"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:fontFamily="monospace"
+                android:textColor="@color/text_primary"
+                android:textSize="36sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/date_mon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.25"
+                android:textColor="@color/amber"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/btn_today"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:letterSpacing="0.15"
+                android:padding="6dp"
+                android:text="@string/today"
+                android:textColor="@color/text_dim"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- The scope dial: one finger slides the days under the fixed amber
+             reticle; the board below always shows the day under it. -->
+        <com.departa.board.DateRail
+            android:id="@+id/rail"
+            android:layout_width="match_parent"
+            android:layout_height="64dp" />
 
         <View
             android:layout_width="match_parent"

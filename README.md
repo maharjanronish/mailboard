@@ -6,7 +6,8 @@ A calendar that behaves like a railway departure board. **Events are trains. Cal
 
 - Board-first Android app with a tiny footprint: **zero external dependencies, no androidx, no network stack**
 - Reads and writes the system calendar provider; Google Calendar stays in sync via Android's own sync adapter
-- Departure-board UI: amber monospace on black, NOW divider, day sections, departed rows struck through
+- Departure-board UI: amber monospace on black, live clock in the header, departed rows struck through
+- **Date rail** — slide one finger across the days under the fixed amber reticle (like a scope dial); the board scopes to that day and `+ NEW` defaults to it
 - Home-screen widget showing the next 8 departures
 
 ## Build
@@ -22,7 +23,8 @@ Release builds run R8 + resource shrinking (expect an APK well under 1 MB).
 
 - Grant calendar access. The manifest has **no INTERNET permission** — data physically cannot leave the device.
 - Every calendar already on the phone (Google or otherwise) instantly appears as a line.
-- `+ NEW` files a new departure. `LINES` manages lines: create, rename, show/hide.
+- Slide the date rail (or tap `TODAY`) to scope the board to any day — 60 days back, 18 months forward.
+- `+ NEW` files a new departure on the scoped day. `LINES` manages lines: create, rename, show/hide.
 
 ## How lines map to Google Calendar
 
@@ -47,7 +49,7 @@ event; tap the header to open the board.
 
 - Editing a recurring event edits the whole series; recurrence presets only (daily / weekly / monthly).
 - Declined invitations are still shown.
-- All-day events appear as `--:--` rows without date grouping.
+- All-day events appear as `--:--` rows.
 - No calendar deletion inside the app — delete lines in Google Calendar if really unwanted.
 
 ## Roadmap
@@ -59,10 +61,11 @@ reminders · AMOLED green theme · search & starred "pinned destinations".
 
 ```
 app/src/main/java/com/departa/
-  BoardActivity.kt        the board (windowed query, ticker, observer)
+  BoardActivity.kt        the board (day-scoped query, clock, date rail, ticker, observer)
   EditActivity.kt         create / edit a departure
   LinesActivity.kt        line manager
-  board/BoardAdapter.kt   rows: departure / NOW / day divider
+  board/DateRail.kt       self-drawn date "scope dial" (Canvas + OverScroller snap)
+  board/BoardAdapter.kt   rows: departure / NOW divider
   data/                   models + CalendarContract repository (all storage access)
   ui/LineDialogs.kt       shared line-creation dialog
   util/                   time formatting, app-local prefs

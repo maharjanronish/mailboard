@@ -4,7 +4,7 @@
     <string name="widget_label">Departa Board</string>
 
     <!-- Board header -->
-    <string name="departures">DEPARTURES</string>
+    <string name="today">TODAY</string>
     <string name="header_lines">LINES</string>
     <string name="header_new">+ NEW</string>
     <string name="header_new_line">+ NEW LINE</string>

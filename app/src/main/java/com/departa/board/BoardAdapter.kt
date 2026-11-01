@@ -11,10 +11,10 @@ import com.departa.R
 import com.departa.data.Departure
 import com.departa.util.Fmt
 
-/** Row model of the board: departures, the NOW divider, day separators. */
+/** Row model of the board: departures and the NOW divider. Day context
+ *  lives in the header (big date + rail), so there are no day rows anymore. */
 sealed class Row {
-    class Now(val at: Long) : Row()
-    data class Day(val label: String) : Row()
+    object Now : Row()
     data class DepartureRow(val d: Departure) : Row()
 }
 
@@ -33,23 +33,20 @@ class BoardAdapter(private val ctx: Context) : BaseAdapter() {
     override fun getItemId(position: Int): Long = when (val r = rows[position]) {
         is Row.DepartureRow -> r.d.instanceId
         is Row.Now -> -1L
-        is Row.Day -> -2L
     }
 
     override fun hasStableIds(): Boolean = true
-    override fun getViewTypeCount(): Int = 3
+    override fun getViewTypeCount(): Int = 2
 
     override fun getItemViewType(position: Int): Int = when (rows[position]) {
         is Row.DepartureRow -> TYPE_DEPARTURE
         is Row.Now -> TYPE_NOW
-        is Row.Day -> TYPE_DAY
     }
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
         when (val r = rows[position]) {
             is Row.DepartureRow -> departureView(convertView, parent, r.d)
-            is Row.Now -> nowView(convertView, parent, r)
-            is Row.Day -> dayView(convertView, parent, r)
+            is Row.Now -> nowView(convertView, parent)
         }
 
     private fun departureView(convertView: View?, parent: ViewGroup, d: Departure): View {
@@ -91,17 +88,8 @@ class BoardAdapter(private val ctx: Context) : BaseAdapter() {
         return v
     }
 
-    private fun nowView(convertView: View?, parent: ViewGroup, r: Row.Now): View {
-        val v = convertView ?: inflater.inflate(R.layout.item_now, parent, false)
-        v.findViewById<TextView>(R.id.now_time).text = "NOW  ·  ${Fmt.hm(r.at)}"
-        return v
-    }
-
-    private fun dayView(convertView: View?, parent: ViewGroup, r: Row.Day): View {
-        val v = convertView ?: inflater.inflate(R.layout.item_day, parent, false)
-        v.findViewById<TextView>(R.id.day_label).text = "──  ${r.label}  ──"
-        return v
-    }
+    private fun nowView(convertView: View?, parent: ViewGroup): View =
+        convertView ?: inflater.inflate(R.layout.item_now, parent, false)
 
     private class DepHolder(v: View) {
         val time: TextView = v.findViewById(R.id.time)
@@ -114,6 +102,5 @@ class BoardAdapter(private val ctx: Context) : BaseAdapter() {
     companion object {
         private const val TYPE_DEPARTURE = 0
         private const val TYPE_NOW = 1
-        private const val TYPE_DAY = 2
     }
 }

@@ -1,26 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- The NOW divider. The time itself lives in the header clock now; this row
+     is just the split between already-departed and still-boarding trains. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:paddingTop="8dp"
-    android:paddingBottom="4dp">
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="16dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="16dp"
+    android:paddingBottom="10dp">
 
     <View
-        android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
         android:background="@color/amber" />
 
     <TextView
-        android:id="@+id/now_time"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="5dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp"
         android:fontFamily="monospace"
-        android:gravity="center"
-        android:letterSpacing="0.2"
+        android:letterSpacing="0.25"
+        android:text="NOW"
         android:textColor="@color/amber"
-        android:textSize="11sp" />
+        android:textSize="11sp"
+        android:textStyle="bold" />
+
+    <View
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:layout_weight="1"
+        android:background="@color/amber" />
 </LinearLayout>
